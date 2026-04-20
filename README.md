@@ -1,91 +1,154 @@
-# AWS-EKS-with-Kong-gateway
+# EKS Cluster with Kong Gateway
 
-## Getting started
+A reference architecture for deploying a multi-domain API gateway layer on AWS EKS using Kong Ingress Controller and the Kubernetes Gateway API. The setup models a financial platform with three domain-specific services (Retail Banking, Payments, GRC), each with their own Kong Ingress Controller, fronted by a single global Kong gateway.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Architecture
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/nyan-lin-tun/aws-eks-with-kong-gateway.git
-git branch -M main
-git push -uf origin main
+Internet
+   |
+Global Kong Gateway (LoadBalancer)
+   |
+   +-- /retail-banking --> Retail Banking KIC
+   +-- /payments       --> Payments KIC
+   +-- /grc            --> GRC KIC
 ```
 
-## Integrate with your tools
+Each domain namespace runs its own Kong Ingress Controller and exposes services internally. The global gateway routes traffic across namespaces via one of three strategies (see Solutions below).
 
-* [Set up project integrations](https://gitlab.com/nyan-lin-tun/aws-eks-with-kong-gateway/-/settings/integrations)
+### Domain Services
 
-## Collaborate with your team
+| Domain | Namespace | Services |
+|---|---|---|
+| Retail Banking | `retail-banking-kic` | customer-profile, account, statement |
+| Payments | `payments-kic` | transfer, payment-gateway, fx |
+| GRC | `grc-kic` | fraud, audit, sanction |
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+## Prerequisites
 
-## Test and Deploy
+- AWS CLI configured with appropriate permissions
+- `eksctl`, `kubectl`, `helm` installed
+- Kong Helm chart repo added: `helm repo add kong https://charts.konghq.com`
 
-Use the built-in continuous integration in GitLab.
+## Initial Setup
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+Spin up the EKS cluster and install the Gateway API CRDs:
 
-***
+```bash
+eksctl create cluster --name eu-eks-cluster --region eu-north-1 --version 1.34 \
+  --instance-types t3.medium --nodes-min 3
 
-# Editing this README
+kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/standard-install.yaml
+kubectl apply --server-side -f https://github.com/kubernetes-sigs/gateway-api/releases/download/v1.4.1/experimental-install.yaml
+```
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+Install the domain-specific Kong Ingress Controllers and apply their manifests. See [Runbook.md](Runbook.md) for full step-by-step commands.
 
-## Suggestions for a good README
+## Solutions
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+Three approaches are provided for wiring the global gateway to domain-specific gateways. Each is self-contained under its own directory.
 
-## Name
-Choose a self-explaining name for your project.
+### Solution 1 — ReferenceGrant-based cross-namespace routing
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+Uses the `ReferenceGrant` CRD to allow the global HTTPRoute to reference backends in other namespaces.
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+- All domain gateways remain as `LoadBalancer` services (directly accessible).
+- Requires `ReferenceGrant` resources in each domain namespace.
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+```bash
+cd Solution-1
+helm install global-kic kong/ingress \
+  --namespace global-kic --create-namespace \
+  --set controller.ingressController.env.gateway_api_controller_name=konghq.com/global-kong-gateway-controller
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+kubectl apply -f 0-gatewayclass-global.yaml
+kubectl apply -f 1-kong-api-gateway-global.yaml
+kubectl apply -f 2-referencegrants.yaml
+kubectl apply -f 3-global-httproute.yaml
+```
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+### Solution 2 — ExternalName services (no ReferenceGrant)
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+Uses `ExternalName` services in the global namespace to proxy to domain gateways. Domain gateways remain as `LoadBalancer` services and are still directly accessible via their own hostnames.
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+```bash
+cd Solution-2
+helm install global-kic kong/ingress \
+  --namespace global-kic --create-namespace \
+  --set controller.ingressController.env.gateway_api_controller_name=konghq.com/global-kong-gateway-controller
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+kubectl apply -f 0-gatewayclass-global.yaml
+kubectl apply -f 1-kong-api-gateway-global.yaml
+kubectl apply -f 2-downstream-proxy-services.yaml
+kubectl apply -f 3-global-httproute.yaml
+```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+### Solution 3 — Domain gateways as ClusterIP (global gateway as single entry point)
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+Domain-specific gateways are deployed as `ClusterIP` instead of `LoadBalancer`, so they are not reachable directly from outside the cluster. All external traffic must flow through the global gateway.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+```bash
+cd Solution-3
+helm install global-kic kong/ingress \
+  --namespace global-kic --create-namespace \
+  --set controller.ingressController.env.gateway_api_controller_name=konghq.com/global-kong-gateway-controller
 
-## License
-For open source projects, say how it is licensed.
+helm upgrade retail-banking-kic kong/ingress --namespace retail-banking-kic \
+  --set controller.ingressController.env.gateway_api_controller_name=konghq.com/retail-banking-kong-gateway-controller \
+  --set gateway.proxy.type=ClusterIP
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+helm upgrade payments-kic kong/ingress --namespace payments-kic \
+  --set controller.ingressController.env.gateway_api_controller_name=konghq.com/payments-kong-gateway-controller \
+  --set gateway.proxy.type=ClusterIP
+
+helm upgrade grc-kic kong/ingress --namespace grc-kic \
+  --set controller.ingressController.env.gateway_api_controller_name=konghq.com/grc-kong-gateway-controller \
+  --set gateway.proxy.type=ClusterIP
+
+kubectl apply -f 0-gatewayclass-global.yaml
+kubectl apply -f 1-kong-api-gateway-global.yaml
+kubectl apply -f 2-downstream-proxy-services.yaml
+kubectl apply -f 3-global-httproute.yaml
+```
+
+## Solution Comparison
+
+| | Solution 1 | Solution 2 | Solution 3 |
+|---|---|---|---|
+| Mechanism | ReferenceGrant | ExternalName services | ClusterIP domain gateways |
+| Domain gateways directly accessible | Yes | Yes | No |
+| Requires ReferenceGrant CRD | Yes | No | No |
+| Single point of entry enforced | No | No | Yes |
+
+## Testing
+
+After deploying any solution, verify global routing:
+
+```bash
+curl http://finance.hellocloud.xyz/retail-banking
+curl http://finance.hellocloud.xyz/payments
+curl http://finance.hellocloud.xyz/grc
+```
+
+For Solutions 1 and 2, direct domain access also works:
+
+```bash
+curl http://retail-banking.hellocloud.xyz
+curl http://payments.hellocloud.xyz
+curl http://grc.hellocloud.xyz
+```
+
+Direct domain access will not work in Solution 3 by design.
+
+## Repository Structure
+
+```
+.
+├── Runbook.md                          # Full setup commands
+├── 1-retail-banking/                   # Retail Banking domain manifests
+├── 2-payments/                         # Payments domain manifests
+├── 3-grc/                              # GRC domain manifests
+├── Solution-1/                         # ReferenceGrant-based global gateway
+├── Solution-2/                         # ExternalName-based global gateway
+└── Solution-3/                         # ClusterIP domain gateways
+```
