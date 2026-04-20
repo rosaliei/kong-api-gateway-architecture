@@ -1,0 +1,69 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sanction-svc
+  namespace: grc-ns
+spec:
+  selector:
+    app: sanction-svc
+  ports:
+    - port: 6063
+      targetPort: 9093
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sanction-svc
+  namespace: grc-ns
+---
+# apiVersion: consul.hashicorp.com/v1alpha1
+# kind: ServiceDefaults
+# metadata:
+#   name: sanction-svc
+#   namespace: grc-ns
+# spec:
+#   protocol: "http"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sanction-svc
+  namespace: grc-ns
+  labels:
+    app: sanction-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sanction-svc
+  template:
+    metadata:
+      labels:
+        app: sanction-svc
+      annotations:
+        # consul.hashicorp.com/connect-inject: 'true'
+        # consul.hashicorp.com/enable-metrics-merging: "false"
+    spec:
+      serviceAccountName: sanction-svc
+      containers:
+        - name: sanction-svc
+          image: nicholasjackson/fake-service:v0.26.2
+          ports:
+            - containerPort: 9093
+          env:
+            - name: LISTEN_ADDR
+              value: '0.0.0.0:9093'
+            - name: NAME
+              value: 'sanction-svc'
+            - name: MESSAGE
+              value: 'HelloCloudBank | GRC | sanction-svc'
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"
