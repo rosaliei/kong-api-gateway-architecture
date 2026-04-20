@@ -1,4 +1,4 @@
-# Solution - for Global API gateway layer
+# Solution 1 - for Global API gateway layer
 
 ## Note: ReferenceGrant CRD
 
