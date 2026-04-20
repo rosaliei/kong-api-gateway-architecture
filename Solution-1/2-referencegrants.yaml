@@ -1,0 +1,44 @@
+# ReferenceGrants allow the HTTPRoute in global-api-gateway-ns to reference
+# Kong proxy services in the downstream KIC namespaces across namespace boundaries.
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-global-gateway
+  namespace: retail-banking-kic
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: global-api-gateway-ns
+  to:
+  - group: ""
+    kind: Service
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-global-gateway
+  namespace: payments-kic
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: global-api-gateway-ns
+  to:
+  - group: ""
+    kind: Service
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-global-gateway
+  namespace: grc-kic
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: global-api-gateway-ns
+  to:
+  - group: ""
+    kind: Service
