@@ -17,7 +17,7 @@ spec:
     namespace: retail-banking-kic
   hostnames:
     # - "retail-banking.hellocloudbank.io"
-    - "retail-banking.hellocloud.xyz"
+    - "retail-banking.nyanlintun.xyz"
   rules:
   - matches:
     - path:
