@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cp /Users/k.sithi/Desktop/kong-api-server-solution/aws-eks-with-kong-gateway/Kyaw-Kong-Test/Kong-Solution-3/apps/1-retail-banking/*.yaml /Users/k.sithi/Desktop/kong-api-server-solution/aws-eks-with-kong-gateway/Kyaw-Kong-Test/Kong-Solution-6/apps/1-retail-banking/)",
+      "Bash(cp /Users/k.sithi/Desktop/kong-api-server-solution/aws-eks-with-kong-gateway/Kyaw-Kong-Test/Kong-Solution-3/apps/2-payments/*.yaml /Users/k.sithi/Desktop/kong-api-server-solution/aws-eks-with-kong-gateway/Kyaw-Kong-Test/Kong-Solution-6/apps/2-payments/)",
+      "Bash(cp /Users/k.sithi/Desktop/kong-api-server-solution/aws-eks-with-kong-gateway/Kyaw-Kong-Test/Kong-Solution-3/apps/3-grc/*.yaml /Users/k.sithi/Desktop/kong-api-server-solution/aws-eks-with-kong-gateway/Kyaw-Kong-Test/Kong-Solution-6/apps/3-grc/)",
+      "Bash(chmod +x /Users/k.sithi/Desktop/kong-api-server-solution/aws-eks-with-kong-gateway/Kyaw-Kong-Test/Kong-Solution-6/scripts/*.sh)"
+    ]
+  }
+}

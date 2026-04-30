@@ -1,0 +1,69 @@
+# Single HTTPRoute on finance.hellocloud.xyz routes by path prefix to each domain gateway.
+# URLRewrite strips the domain prefix from the path and sets the Host header so
+# each downstream gateway's hostname-based listener matches correctly.
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: global-httproute
+  namespace: global-api-gateway-ns
+spec:
+  parentRefs:
+  - name: global-kong-api-gateway
+    namespace: global-kic
+  hostnames:
+    - "finance.kst-devops.com"
+  rules:
+
+  # /retail-banking/* → retail-banking KIC proxy
+  # Rewrites Host: retail-banking.hellocloud.xyz so downstream listener matches
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /retail-banking
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        hostname: retail-banking.kst-devops.com
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - kind: Service
+      name: retail-banking-kic-gateway-proxy
+      port: 80
+
+  # /payments/* → payments KIC proxy
+  # Rewrites Host: payments.hellocloud.xyz so downstream listener matches
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /payments
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        hostname: payments.kst-devops.com
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - kind: Service
+      name: payments-kic-gateway-proxy
+      port: 80
+
+  # /grc/* → GRC KIC proxy
+  # Rewrites Host: grc.hellocloud.xyz so downstream listener matches
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /grc
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        hostname: grc.kst-devops.com
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - kind: Service
+      name: grc-kic-gateway-proxy
+      port: 80

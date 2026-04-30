@@ -1,0 +1,33 @@
+# /grc/* → GRC domain gateway (ClusterIP)
+# Auth: JWT required, admin group ONLY (governance/risk/compliance is privileged).
+# URLRewrite strips the /grc prefix and sets Host so the downstream
+# grc gateway listener matches on grc.kst-devops.com.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: grc-httproute
+  namespace: global-api-gateway-ns
+  annotations:
+    konghq.com/plugins: app-jwt,admin-acl
+spec:
+  parentRefs:
+  - name: global-kong-api-gateway
+    namespace: global-kic
+  hostnames:
+    - "finance.kst-devops.com"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /grc
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        hostname: grc.kst-devops.com
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - kind: Service
+      name: grc-kic-gateway-proxy
+      port: 80

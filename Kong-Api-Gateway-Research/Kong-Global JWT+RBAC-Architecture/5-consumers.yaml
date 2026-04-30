@@ -1,0 +1,28 @@
+---
+# Admin consumer: full access to all domains (retail-banking + payments + grc).
+# JWT key claim "iss" must equal "admin-issuer" in the signed token.
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: admin
+  namespace: global-api-gateway-ns
+  annotations:
+    kubernetes.io/ingress.class: kong
+username: admin
+credentials:
+  - admin-jwt
+  - admin-acl
+---
+# User consumer: access to retail-banking only (/retail-banking/*).
+# JWT key claim "iss" must equal "user-issuer" in the signed token.
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: user
+  namespace: global-api-gateway-ns
+  annotations:
+    kubernetes.io/ingress.class: kong
+username: user
+credentials:
+  - user-jwt
+  - user-acl

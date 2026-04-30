@@ -1,0 +1,69 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fx-svc
+  namespace: payments-ns
+spec:
+  selector:
+    app: fx-svc
+  ports:
+    - port: 7073
+      targetPort: 9093
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fx-svc
+  namespace: payments-ns
+---
+# apiVersion: consul.hashicorp.com/v1alpha1
+# kind: ServiceDefaults
+# metadata:
+#   name: fx-svc
+#   namespace: payments-ns
+# spec:
+#   protocol: "http"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fx-svc
+  namespace: payments-ns
+  labels:
+    app: fx-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fx-svc
+  template:
+    metadata:
+      labels:
+        app: fx-svc
+      annotations:
+        # consul.hashicorp.com/connect-inject: 'true'
+        # consul.hashicorp.com/enable-metrics-merging: "false"
+    spec:
+      serviceAccountName: fx-svc
+      containers:
+        - name: fx-svc
+          image: nicholasjackson/fake-service:v0.26.2
+          ports:
+            - containerPort: 9093
+          env:
+            - name: LISTEN_ADDR
+              value: '0.0.0.0:9093'
+            - name: NAME
+              value: 'fx-svc'
+            - name: MESSAGE
+              value: 'HelloCloudBank | Payments | fx-svc'
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"

@@ -1,0 +1,74 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-svc
+  namespace: grc-ns
+spec:
+  # type: LoadBalancer
+  selector:
+    app: fraud-svc
+  ports:
+    - port: 6061
+      targetPort: 9091
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: fraud-svc
+  namespace: grc-ns
+---
+# apiVersion: consul.hashicorp.com/v1alpha1
+# kind: ServiceDefaults
+# metadata:
+#   name: fraud-svc
+#   namespace: grc-ns
+# spec:
+#   protocol: "http"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fraud-svc
+  namespace: grc-ns
+  labels:
+    app: fraud-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fraud-svc
+  template:
+    metadata:
+      labels:
+        app: fraud-svc
+      annotations:
+        # consul.hashicorp.com/connect-inject: 'true'
+        # consul.hashicorp.com/connect-service-upstreams: 'audit-svc:9092'
+        # consul.hashicorp.com/enable-metrics-merging: "false"
+    spec:
+      serviceAccountName: fraud-svc
+      containers:
+        - name: fraud-svc
+          image: nicholasjackson/fake-service:v0.26.2
+          ports:
+            - containerPort: 9091
+          env:
+            - name: LISTEN_ADDR
+              value: '0.0.0.0:9091'
+            - name: UPSTREAM_URIS
+              # value: 'http://localhost:9092'
+              value: 'http://audit-svc.grc-ns.svc.cluster.local:6062'
+            - name: NAME
+              value: 'fraud-svc'
+            - name: MESSAGE
+              value: 'HelloCloudBank | GRC | fraud-svc'
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"

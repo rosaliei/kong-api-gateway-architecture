@@ -1,0 +1,73 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-gateway-svc
+  namespace: payments-ns
+spec:
+  selector:
+    app: payment-gateway-svc
+  ports:
+    - port: 7072
+      targetPort: 9092
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: payment-gateway-svc
+  namespace: payments-ns
+---
+# apiVersion: consul.hashicorp.com/v1alpha1
+# kind: ServiceDefaults
+# metadata:
+#   name: payment-gateway-svc
+#   namespace: payments-ns
+# spec:
+#   protocol: "http"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-gateway-svc
+  namespace: payments-ns
+  labels:
+    app: payment-gateway-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-gateway-svc
+  template:
+    metadata:
+      labels:
+        app: payment-gateway-svc
+      annotations:
+        # consul.hashicorp.com/connect-inject: 'true'
+        # consul.hashicorp.com/connect-service-upstreams: 'fx-service:9091'
+        # consul.hashicorp.com/enable-metrics-merging: "false"
+    spec:
+      serviceAccountName: payment-gateway-svc
+      containers:
+        - name: payment-gateway-svc
+          image: nicholasjackson/fake-service:v0.26.2
+          ports:
+            - containerPort: 9092
+          env:
+            - name: LISTEN_ADDR
+              value: '0.0.0.0:9092'
+            - name: UPSTREAM_URIS
+              # value: 'http://localhost:9091'
+              value: 'http://fx-svc.payments-ns.svc.cluster.local:7073'
+            - name: NAME
+              value: 'payment-gateway-svc'
+            - name: MESSAGE
+              value: 'HelloCloudBank | Payments | payment-gateway-svc'
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"

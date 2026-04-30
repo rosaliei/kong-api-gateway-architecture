@@ -1,0 +1,33 @@
+# /retail-banking/* → retail-banking domain gateway (ClusterIP)
+# Auth: JWT required, both admin and user groups allowed.
+# URLRewrite strips the /retail-banking prefix and sets Host so the downstream
+# retail-banking gateway listener matches on retail-banking.kst-devops.com.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: retail-banking-httproute
+  namespace: global-api-gateway-ns
+  annotations:
+    konghq.com/plugins: app-jwt,anyone-acl
+spec:
+  parentRefs:
+  - name: global-kong-api-gateway
+    namespace: global-kic
+  hostnames:
+    - "finance.kst-devops.com"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /retail-banking
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        hostname: retail-banking.kst-devops.com
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - kind: Service
+      name: retail-banking-kic-gateway-proxy
+      port: 80

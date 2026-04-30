@@ -1,0 +1,73 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: audit-svc
+  namespace: grc-ns
+spec:
+  selector:
+    app: audit-svc
+  ports:
+    - port: 6062
+      targetPort: 9092
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: audit-svc
+  namespace: grc-ns
+---
+# apiVersion: consul.hashicorp.com/v1alpha1
+# kind: ServiceDefaults
+# metadata:
+#   name: audit-svc
+#   namespace: grc-ns
+# spec:
+#   protocol: "http"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audit-svc
+  namespace: grc-ns
+  labels:
+    app: audit-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: audit-svc
+  template:
+    metadata:
+      labels:
+        app: audit-svc
+      annotations:
+        # consul.hashicorp.com/connect-inject: 'true'
+        # consul.hashicorp.com/connect-service-upstreams: 'sanction-svc:9093'
+        # consul.hashicorp.com/enable-metrics-merging: "false"
+    spec:
+      serviceAccountName: audit-svc
+      containers:
+        - name: audit-svc
+          image: nicholasjackson/fake-service:v0.26.2
+          ports:
+            - containerPort: 9092
+          env:
+            - name: LISTEN_ADDR
+              value: '0.0.0.0:9092'
+            - name: UPSTREAM_URIS
+              # value: 'http://localhost:9093'
+              value: 'http://sanction-svc.grc-ns.svc.cluster.local:6063'
+            - name: NAME
+              value: 'audit-svc'
+            - name: MESSAGE
+              value: 'HelloCloudBank | GRC | audit-svc'
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"

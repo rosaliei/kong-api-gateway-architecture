@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    kubernetes.io/metadata.name: payments-ns
+  name: payments-ns
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: transfer-httproute
+  namespace: payments-ns
+spec:
+  parentRefs:
+  - name: payments-kong-api-gateway
+    namespace: payments-kic
+  hostnames:
+    # - "payments.hellocloudbank.io"
+    - "payments.kst-devops.com"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - kind: Service
+      name: transfer-svc
+      port: 7071

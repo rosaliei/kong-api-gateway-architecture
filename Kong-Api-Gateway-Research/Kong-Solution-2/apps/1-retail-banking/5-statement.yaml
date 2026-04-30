@@ -1,0 +1,76 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    kubernetes.io/metadata.name: retail-banking-ns
+  name: retail-banking-ns
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: statement-svc
+  namespace: retail-banking-ns
+spec:
+  selector:
+    app: statement-svc
+  ports:
+    - port: 8083
+      targetPort: 9093
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: statement-svc
+  namespace: retail-banking-ns
+---
+# apiVersion: consul.hashicorp.com/v1alpha1
+# kind: ServiceDefaults
+# metadata:
+#   name: statement-svc
+#   namespace: retail-banking-ns
+# spec:
+#   protocol: "http"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: statement-svc
+  namespace: retail-banking-ns
+  labels:
+    app: statement-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: statement-svc
+  template:
+    metadata:
+      labels:
+        app: statement-svc
+      annotations:
+        # consul.hashicorp.com/connect-inject: 'true'
+        # consul.hashicorp.com/enable-metrics-merging: "false"
+    spec:
+      serviceAccountName: statement-svc
+      containers:
+        - name: statement-svc
+          image: nicholasjackson/fake-service:v0.26.2
+          ports:
+            - containerPort: 9093
+          env:
+            - name: LISTEN_ADDR
+              value: '0.0.0.0:9093'
+            - name: NAME
+              value: 'statement-svc'
+            - name: MESSAGE
+              value: 'HelloCloudBank | Retail Banking | statement-svc'
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"

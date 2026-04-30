@@ -1,0 +1,34 @@
+---
+# JWT plugin — validates RS256 signature on every request.
+# Applied to every global HTTPRoute via konghq.com/plugins annotation.
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: app-jwt
+  namespace: global-api-gateway-ns
+plugin: jwt
+---
+# ACL plugin — allows ONLY admin group.
+# Applied to /payments and /grc routes (sensitive financial + compliance domains).
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: admin-acl
+  namespace: global-api-gateway-ns
+plugin: acl
+config:
+  allow:
+    - admin
+---
+# ACL plugin — allows admin and user groups.
+# Applied to /retail-banking routes (customer-facing, both roles can access).
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: anyone-acl
+  namespace: global-api-gateway-ns
+plugin: acl
+config:
+  allow:
+    - admin
+    - user

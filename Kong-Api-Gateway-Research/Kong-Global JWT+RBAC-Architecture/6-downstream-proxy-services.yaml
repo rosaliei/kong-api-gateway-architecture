@@ -1,0 +1,45 @@
+# ExternalName services in global-api-gateway-ns mirror the downstream Kong proxy
+# services by their exact name. DNS resolves to each proxy's ClusterIP — traffic
+# never leaves the cluster and the downstream ELBs are bypassed entirely.
+#   retail-banking-kic-gateway-proxy.retail-banking-kic.svc.cluster.local
+#   payments-kic-gateway-proxy.payments-kic.svc.cluster.local
+#   grc-kic-gateway-proxy.grc-kic.svc.cluster.local
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: retail-banking-kic-gateway-proxy
+  namespace: global-api-gateway-ns
+spec:
+  type: ExternalName
+  externalName: retail-banking-kic-gateway-proxy.retail-banking-kic.svc.cluster.local
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payments-kic-gateway-proxy
+  namespace: global-api-gateway-ns
+spec:
+  type: ExternalName
+  externalName: payments-kic-gateway-proxy.payments-kic.svc.cluster.local
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grc-kic-gateway-proxy
+  namespace: global-api-gateway-ns
+spec:
+  type: ExternalName
+  externalName: grc-kic-gateway-proxy.grc-kic.svc.cluster.local
+  ports:
+    - name: http
+      port: 80
+      protocol: TCP
