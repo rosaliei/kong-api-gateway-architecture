@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git mv *)",
+      "Bash(git rm *)",
+      "Bash(grep -nE \"^\\\\| \\\\`?[0-9]\" README.md)"
+    ]
+  }
+}

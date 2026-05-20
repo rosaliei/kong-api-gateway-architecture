@@ -18,7 +18,7 @@
 set -euo pipefail
 
 KC_ADMIN_USER="admin"
-KC_ADMIN_PASS="Admin@FinGate2024"  # must match keycloak-admin-secret in 2-keycloak-deployment.yaml
+KC_ADMIN_PASS="Admin@FinGate2024"  # must match keycloak-admin-secret in 03-keycloak-deployment.yaml
 KC_REALM="fingate"
 KC_NS="keycloak-ns"
 KONG_NS="global-api-gateway-ns"

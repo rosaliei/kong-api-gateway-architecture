@@ -10,7 +10,7 @@ the realm RS256 public key copied out for use in the Kong JWT Secrets.
 
 ## Prerequisites
 
-- Keycloak deployment from `2-keycloak-deployment.yaml` is running
+- Keycloak deployment from `03-keycloak-deployment.yaml` is running
 - `kubectl` access to `keycloak-ns`
 
 ```bash
@@ -29,7 +29,7 @@ Open `http://localhost:8090/auth` in your browser → **Administration Console**
 
 | Field    | Value               | Source                                   |
 |----------|---------------------|------------------------------------------|
-| Username | `admin`             | `KEYCLOAK_ADMIN` env in `2-keycloak-deployment.yaml` |
+| Username | `admin`             | `KEYCLOAK_ADMIN` env in `03-keycloak-deployment.yaml` |
 | Password | `Admin@FinGate2024` | `keycloak-admin-secret` in the same file |
 
 ---

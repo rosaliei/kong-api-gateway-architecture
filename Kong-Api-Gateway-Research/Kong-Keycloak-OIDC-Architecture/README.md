@@ -143,26 +143,26 @@ flowchart TD
 
 ## File Structure
 
-| File | Resource |
-|------|----------|
-| `0-gatewayclass-global.yaml` | GatewayClass: `global-kong-gatewayclass` |
-| `1-kong-api-gateway-global.yaml` | Gateway + Namespace: `global-api-gateway-ns` |
-| `2-keycloak-deployment.yaml` | Keycloak Deployment + ClusterIP + admin Secret |
-| `2b-keycloak-httproute.yaml` | HTTPRoute `/auth/*` + ReferenceGrant for Kong → Keycloak |
-| `2c-keycloak-realm-setup-ui.md` | Manual UI walkthrough — alternative to `setup-keycloak.sh` |
-| `3-kong-plugins.yaml` | KongPlugin: `app-jwt` (azp), `admin-acl`, `anyone-acl` |
-| `4-acl-secrets.yaml` | Secret: `admin-acl` (group:admin), `user-acl` (group:user) |
-| `5-consumers.yaml` | KongConsumer: `admin` (key=admin-client), `user` (key=user-client) |
-| `6-keycloak-proxy-service.yaml` | ExternalName → `keycloak.keycloak-ns.svc.cluster.local:8080` |
-| `7-downstream-proxy-services.yaml` | ExternalName → 3 domain KIC ClusterIP services |
-| `8-auth-httproute.yaml` | HTTPRoute `/auth/*` → Keycloak (no auth plugin) |
-| `9-retail-banking-httproute.yaml` | HTTPRoute `/retail-banking/*` → `anyone-acl` |
-| `10-payments-httproute.yaml` | HTTPRoute `/payments/*` → `admin-acl` |
-| `11-grc-httproute.yaml` | HTTPRoute `/grc/*` → `admin-acl` |
-| `apps/` | Domain app manifests (retail-banking, payments, grc) |
-| `scripts/setup-keycloak.sh` | Creates Keycloak realm + clients + Kong JWT Secrets |
-| `scripts/get-token.sh` | Fetches JWT from Keycloak through Kong |
-| `scripts/test.sh` | 10-case end-to-end test suite |
+| # | File | Resource |
+|---|------|----------|
+| 01 | `01-gatewayclass-global.yaml` | GatewayClass: `global-kong-gatewayclass` |
+| 02 | `02-gateway-and-namespace.yaml` | Gateway + Namespace: `global-api-gateway-ns` |
+| 03 | `03-keycloak-deployment.yaml` | Keycloak Deployment + ClusterIP + admin Secret |
+| 04 | `04-auth-httproute.yaml` | HTTPRoute `/auth/*` + ReferenceGrant (Kong → Keycloak, no auth plugin) |
+| 05 | `05-keycloak-realm-setup-ui.md` | Manual UI walkthrough — alternative to `setup-keycloak.sh` |
+| 06 | `06-kong-plugins.yaml` | KongPlugin: `app-jwt` (azp), `admin-acl`, `anyone-acl` |
+| 07 | `07-acl-secrets.yaml` | Secret: `admin-acl` (group:admin), `user-acl` (group:user) |
+| 08 | `08-jwt-secrets.yaml` | Secret: `admin-jwt`, `user-jwt` (Keycloak realm public key) |
+| 09 | `09-kong-consumers.yaml` | KongConsumer: `admin` (key=admin-client), `user` (key=user-client) |
+| 10 | `10-downstream-proxy-services.yaml` | ExternalName → 3 domain KIC ClusterIP services |
+| 11 | `11-retail-banking-httproute.yaml` | HTTPRoute `/retail-banking/*` → `anyone-acl` |
+| 12 | `12-payments-httproute.yaml` | HTTPRoute `/payments/*` → `admin-acl` |
+| 13 | `13-grc-httproute.yaml` | HTTPRoute `/grc/*` → `admin-acl` |
+| —  | `apps/` | Domain app manifests (retail-banking, payments, grc) |
+| —  | `scripts/setup-keycloak.sh` | Creates Keycloak realm + clients + Kong JWT Secrets |
+| —  | `scripts/get-token.sh` | Fetches JWT from Keycloak through Kong |
+| —  | `scripts/test.sh` | 10-case end-to-end test suite |
+| —  | `LESSON-PLAN.md` | 60-minute teaching guide for the team |
 
 ---
 
@@ -205,7 +205,7 @@ helm install grc-kic kong/ingress \
 ### Step 3 — Deploy Keycloak
 
 ```bash
-kubectl apply -f 2-keycloak-deployment.yaml
+kubectl apply -f 03-keycloak-deployment.yaml
 
 # Wait for Keycloak to become ready (readiness probe: GET /auth/realms/master)
 kubectl rollout status deployment/keycloak -n keycloak-ns
@@ -214,11 +214,11 @@ kubectl rollout status deployment/keycloak -n keycloak-ns
 ### Step 4 — Apply Global Gateway Manifests
 
 ```bash
-kubectl apply -f 0-gatewayclass-global.yaml
-kubectl apply -f 1-kong-api-gateway-global.yaml
-kubectl apply -f 3-kong-plugins.yaml
-kubectl apply -f 6-keycloak-proxy-service.yaml
-kubectl apply -f 7-downstream-proxy-services.yaml
+kubectl apply -f 01-gatewayclass-global.yaml
+kubectl apply -f 02-gateway-and-namespace.yaml
+kubectl apply -f 04-auth-httproute.yaml
+kubectl apply -f 06-kong-plugins.yaml
+kubectl apply -f 10-downstream-proxy-services.yaml
 ```
 
 Create the ACL group secrets:
@@ -267,7 +267,7 @@ kubectl create secret generic user-jwt \
 
 This step creates the Keycloak realm + clients, fetches the realm public key, and registers it as Kong JWT Secrets (`admin-jwt`, `user-jwt`).
 
-You can either **run the script** (automated), **follow the curl-based manual steps** below, or **use the Keycloak Admin UI** — see [2c-keycloak-realm-setup-ui.md](2c-keycloak-realm-setup-ui.md) for the click-by-click walkthrough.
+You can either **run the script** (automated), **follow the curl-based manual steps** below, or **use the Keycloak Admin UI** — see [05-keycloak-realm-setup-ui.md](05-keycloak-realm-setup-ui.md) for the click-by-click walkthrough.
 
 #### Option A — Run the script (recommended)
 
@@ -304,7 +304,7 @@ ADMIN_TOKEN=$(curl -sf \
 echo "Got admin token: ${ADMIN_TOKEN:0:40}..."
 ```
 
-> The password `Admin@FinGate2024` must match `keycloak-admin-secret` in `2-keycloak-deployment.yaml`.
+> The password `Admin@FinGate2024` must match `keycloak-admin-secret` in `03-keycloak-deployment.yaml`.
 
 **5.3 — Create the `fingate` realm**
 
@@ -428,7 +428,7 @@ user-jwt    Opaque   map[konghq.com/credential:jwt]
 
 > **What just happened?**
 > - `admin-jwt` and `user-jwt` are now Kubernetes Secrets labelled `konghq.com/credential=jwt`.
-> - Kong's KongConsumer controller watches for secrets with this label and binds them to the consumers defined in `5-consumers.yaml`.
+> - Kong's KongConsumer controller watches for secrets with this label and binds them to the consumers defined in `09-kong-consumers.yaml`.
 > - When a request arrives, the `jwt` plugin reads the `azp` claim, looks up the matching secret (`key=admin-client` or `key=user-client`), and verifies the signature against the stored `rsa_public_key`.
 
 Expected script output (Option A):
@@ -452,16 +452,16 @@ Expected script output (Option A):
 ### Step 6 — Apply KongConsumers
 
 ```bash
-kubectl apply -f 5-consumers.yaml
+kubectl apply -f 09-kong-consumers.yaml
 ```
 
 ### Step 7 — Apply HTTPRoutes
 
 ```bash
-kubectl apply -f 8-auth-httproute.yaml
-kubectl apply -f 9-retail-banking-httproute.yaml
-kubectl apply -f 10-payments-httproute.yaml
-kubectl apply -f 11-grc-httproute.yaml
+kubectl apply -f 11-retail-banking-httproute.yaml
+kubectl apply -f 12-payments-httproute.yaml
+kubectl apply -f 13-grc-httproute.yaml
+# Note: 04-auth-httproute.yaml was already applied in Step 4
 ```
 
 ### Step 8 — Deploy Domain Apps
