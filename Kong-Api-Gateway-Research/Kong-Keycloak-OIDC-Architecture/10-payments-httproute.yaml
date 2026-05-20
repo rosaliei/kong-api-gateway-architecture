@@ -1,0 +1,33 @@
+# /payments/* → payments domain gateway (ClusterIP)
+# Auth: Keycloak JWT required, admin group ONLY (financial operations are privileged).
+# URLRewrite strips the /payments prefix and sets Host so the downstream
+# payments gateway listener matches on payments.kst-devops.com.
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: payments-httproute
+  namespace: global-api-gateway-ns
+  annotations:
+    konghq.com/plugins: app-jwt,admin-acl
+spec:
+  parentRefs:
+  - name: global-kong-api-gateway
+    namespace: global-kic
+  hostnames:
+    - "finance.kst-devops.com"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /payments
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        hostname: payments.kst-devops.com
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: /
+    backendRefs:
+    - kind: Service
+      name: payments-kic-gateway-proxy
+      port: 80

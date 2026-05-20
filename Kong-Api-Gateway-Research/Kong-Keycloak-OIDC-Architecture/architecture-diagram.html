@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FinGate — Kong + Keycloak OIDC Architecture</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      padding: 32px 24px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    header h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #f8fafc;
+      letter-spacing: -0.5px;
+    }
+
+    header p {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #94a3b8;
+    }
+
+    .badge-row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+
+    .badge {
+      padding: 4px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .badge-kong   { background: #7c3aed20; color: #a78bfa; border: 1px solid #7c3aed50; }
+    .badge-keycloak { background: #0369a120; color: #38bdf8; border: 1px solid #0369a150; }
+    .badge-aws    { background: #b4530020; color: #fb923c; border: 1px solid #b4530050; }
+    .badge-eks    { background: #05966920; color: #34d399; border: 1px solid #05966950; }
+
+    /* ── Legend ── */
+    .legend {
+      display: flex;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+      color: #94a3b8;
+    }
+
+    .legend-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      flex-shrink: 0;
+    }
+
+    /* ── Diagram wrapper ── */
+    .diagram-card {
+      background: #1e2330;
+      border: 1px solid #2d3748;
+      border-radius: 16px;
+      padding: 32px;
+      max-width: 1300px;
+      margin: 0 auto;
+      box-shadow: 0 4px 40px rgba(0,0,0,0.5);
+    }
+
+    .mermaid {
+      display: flex;
+      justify-content: center;
+    }
+
+    /* ── Access Matrix ── */
+    .matrix-section {
+      max-width: 1300px;
+      margin: 32px auto 0;
+    }
+
+    .matrix-section h2 {
+      font-size: 16px;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin-bottom: 14px;
+      padding-left: 4px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      background: #1e2330;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid #2d3748;
+    }
+
+    th {
+      background: #2d3748;
+      color: #94a3b8;
+      padding: 10px 16px;
+      text-align: left;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    td {
+      padding: 10px 16px;
+      border-top: 1px solid #2d374850;
+      color: #cbd5e1;
+    }
+
+    td.pass  { color: #4ade80; font-weight: 700; text-align: center; }
+    td.fail  { color: #f87171; font-weight: 700; text-align: center; }
+    td.open  { color: #38bdf8; font-weight: 700; text-align: center; }
+
+    tr:hover td { background: #ffffff08; }
+
+    footer {
+      text-align: center;
+      margin-top: 36px;
+      font-size: 12px;
+      color: #475569;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>FinGate — Kong API Gateway + Keycloak OIDC</h1>
+  <p>AWS EKS · Kong Ingress Controller · Keycloak OAuth2/OIDC · Role-Based ACL</p>
+  <div class="badge-row">
+    <span class="badge badge-aws">AWS EKS</span>
+    <span class="badge badge-kong">Kong Gateway</span>
+    <span class="badge badge-keycloak">Keycloak OIDC</span>
+    <span class="badge badge-eks">Kubernetes Gateway API</span>
+  </div>
+</header>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#e67e22"></div>Kong Gateway</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#3498db"></div>Keycloak IdP</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#27ae60"></div>Domain Microservice</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#9b59b6"></div>KongConsumer</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#e74c3c"></div>Auth Error</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#2c3e50"></div>Client</div>
+</div>
+
+<!-- Diagram -->
+<div class="diagram-card">
+  <div class="mermaid">
+flowchart TD
+    subgraph External["  External  "]
+        Client1(["Admin Client\nazp: admin-client"])
+        Client2(["User Client\nazp: user-client"])
+        Internet(["Internet\nfinance.kst-devops.com :80"])
+    end
+
+    subgraph AWS["  AWS EKS Cluster  "]
+
+        ALB[/"AWS Application\nLoad Balancer"\]
+
+        subgraph GlobalNS["  global-api-gateway-ns  "]
+            GlobalKong["Global Kong Gateway\nglobal-kic  |  LoadBalancer\nGatewayClass: global-kong-gatewayclass"]
+
+            subgraph Routes["  HTTPRoutes + Plugins  "]
+                AuthRoute["/auth/*\nopen — NO auth plugin"]
+                RBRoute["/retail-banking/*\njwt(azp) + anyone-acl"]
+                PayRoute["/payments/*\njwt(azp) + admin-acl"]
+                GRCRoute["/grc/*\njwt(azp) + admin-acl"]
+            end
+
+            subgraph Consumers["  KongConsumers  "]
+                AdminConsumer(["KongConsumer: admin\nkey=admin-client  |  group=admin"])
+                UserConsumer(["KongConsumer: user\nkey=user-client   |  group=user"])
+            end
+        end
+
+        subgraph KeycloakNS["  keycloak-ns  "]
+            KC["Keycloak\nDeployment  |  ClusterIP :8080\nrealm: fingate\nadmin-client  |  user-client\nRS256 signing key"]
+        end
+
+        subgraph RBNs["  retail-banking-kic  "]
+            RBKIC["Retail-Banking Kong\nClusterIP"]
+            CP["customer-profile"]
+            ACC["account"]
+            STMT["statement"]
+        end
+
+        subgraph PayNS["  payments-kic  "]
+            PayKIC["Payments Kong\nClusterIP"]
+            TRANS["transfer"]
+            PGWY["payment-gateway"]
+            FX["fx"]
+        end
+
+        subgraph GRCNS["  grc-kic  "]
+            GRCKIC["GRC Kong\nClusterIP"]
+            FRAUD["fraud"]
+            AUDIT["audit"]
+            SANC["sanction"]
+        end
+
+        E401["401 Unauthorized\nno / invalid token"]
+        E403["403 Forbidden\nwrong ACL group"]
+    end
+
+    %% Ingress
+    Client1 & Client2 & Internet --> ALB
+    ALB --> GlobalKong
+
+    %% Kong → Routes
+    GlobalKong --> AuthRoute
+    GlobalKong --> RBRoute
+    GlobalKong --> PayRoute
+    GlobalKong --> GRCRoute
+
+    %% Auth flow
+    AuthRoute -->|"forward — no plugin"| KC
+    KC -->|"JWT  azp=admin-client"| Client1
+    KC -->|"JWT  azp=user-client"| Client2
+
+    %% JWT consumer lookup (dashed)
+    RBRoute & PayRoute & GRCRoute -.->|"key_claim_name=azp"| AdminConsumer
+    RBRoute & PayRoute & GRCRoute -.->|"key_claim_name=azp"| UserConsumer
+
+    %% ACL allow
+    RBRoute -->|"anyone-acl  admin ✓  user ✓"| RBKIC
+    PayRoute -->|"admin-acl   admin ✓"| PayKIC
+    GRCRoute -->|"admin-acl   admin ✓"| GRCKIC
+
+    %% ACL deny
+    PayRoute -->|"admin-acl   user ✗"| E403
+    GRCRoute -->|"admin-acl   user ✗"| E403
+    RBRoute & PayRoute & GRCRoute -->|"no token"| E401
+
+    %% Domain services
+    RBKIC --> CP & ACC & STMT
+    PayKIC --> TRANS & PGWY & FX
+    GRCKIC --> FRAUD & AUDIT & SANC
+
+    %% Styles
+    classDef gateway  fill:#e67e22,stroke:#d35400,color:#fff,font-weight:bold
+    classDef keycloak fill:#2980b9,stroke:#1f618d,color:#fff,font-weight:bold
+    classDef service  fill:#1e8449,stroke:#196f3d,color:#fff
+    classDef error    fill:#c0392b,stroke:#922b21,color:#fff,font-weight:bold
+    classDef consumer fill:#7d3c98,stroke:#6c3483,color:#fff
+    classDef client   fill:#2c3e50,stroke:#1a252f,color:#fff
+    classDef alb      fill:#d35400,stroke:#b7440e,color:#fff,font-weight:bold
+
+    class GlobalKong,RBKIC,PayKIC,GRCKIC gateway
+    class KC keycloak
+    class CP,ACC,STMT,TRANS,PGWY,FX,FRAUD,AUDIT,SANC service
+    class E401,E403 error
+    class AdminConsumer,UserConsumer consumer
+    class Client1,Client2,Internet client
+    class ALB alb
+  </div>
+</div>
+
+<!-- Access Matrix -->
+<div class="matrix-section">
+  <h2>Access Matrix</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Consumer</th>
+        <th style="text-align:center">/auth/*</th>
+        <th style="text-align:center">/retail-banking/*</th>
+        <th style="text-align:center">/payments/*</th>
+        <th style="text-align:center">/grc/*</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>No token (anonymous)</td>
+        <td class="open">200 open</td>
+        <td class="fail">401</td>
+        <td class="fail">401</td>
+        <td class="fail">401</td>
+      </tr>
+      <tr>
+        <td>admin-client JWT &nbsp;<span style="background:#7d3c9830;color:#c39bd3;padding:2px 8px;border-radius:4px;font-size:11px">group: admin</span></td>
+        <td class="open">200 open</td>
+        <td class="pass">200</td>
+        <td class="pass">200</td>
+        <td class="pass">200</td>
+      </tr>
+      <tr>
+        <td>user-client JWT &nbsp;<span style="background:#7d3c9830;color:#c39bd3;padding:2px 8px;border-radius:4px;font-size:11px">group: user</span></td>
+        <td class="open">200 open</td>
+        <td class="pass">200</td>
+        <td class="fail">403</td>
+        <td class="fail">403</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<footer>
+  FinGate &nbsp;·&nbsp; Kong + Keycloak OIDC on AWS EKS &nbsp;·&nbsp; finance.kst-devops.com
+</footer>
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      background:         '#1e2330',
+      primaryColor:       '#e67e22',
+      primaryTextColor:   '#f8fafc',
+      primaryBorderColor: '#d35400',
+      lineColor:          '#64748b',
+      secondaryColor:     '#2c3e50',
+      tertiaryColor:      '#1e2330',
+      clusterBkg:         '#ffffff08',
+      clusterBorder:      '#2d3748',
+      titleColor:         '#94a3b8',
+      edgeLabelBackground:'#1e2330',
+      nodeTextColor:      '#f8fafc',
+    },
+    flowchart: {
+      curve: 'basis',
+      padding: 20,
+      nodeSpacing: 50,
+      rankSpacing: 60,
+    }
+  });
+</script>
+</body>
+</html>

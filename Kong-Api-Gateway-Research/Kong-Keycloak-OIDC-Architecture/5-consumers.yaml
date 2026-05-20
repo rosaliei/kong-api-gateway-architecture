@@ -1,0 +1,30 @@
+---
+# Admin consumer — maps to Keycloak client "admin-client".
+# Kong matches this consumer when azp=admin-client appears in the Keycloak JWT.
+# JWT credential key must equal the Keycloak client_id exactly.
+# The rsa_public_key is fetched from Keycloak's realm JWKS endpoint by setup-keycloak.sh.
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: admin
+  namespace: global-api-gateway-ns
+  annotations:
+    kubernetes.io/ingress.class: kong
+username: admin
+credentials:
+  - admin-jwt
+  - admin-acl
+---
+# User consumer — maps to Keycloak client "user-client".
+# Kong matches this consumer when azp=user-client appears in the Keycloak JWT.
+apiVersion: configuration.konghq.com/v1
+kind: KongConsumer
+metadata:
+  name: user
+  namespace: global-api-gateway-ns
+  annotations:
+    kubernetes.io/ingress.class: kong
+username: user
+credentials:
+  - user-jwt
+  - user-acl

@@ -1,0 +1,56 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    kubernetes.io/metadata.name: grc-ns
+  name: grc-ns
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fraud-svc
+  namespace: grc-ns
+spec:
+  selector:
+    app: fraud-svc
+  ports:
+    - port: 8087
+      targetPort: 9097
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fraud-svc
+  namespace: grc-ns
+  labels:
+    app: fraud-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fraud-svc
+  template:
+    metadata:
+      labels:
+        app: fraud-svc
+    spec:
+      containers:
+        - name: fraud-svc
+          image: nicholasjackson/fake-service:v0.26.2
+          ports:
+            - containerPort: 9097
+          env:
+            - name: LISTEN_ADDR
+              value: '0.0.0.0:9097'
+            - name: NAME
+              value: 'fraud-svc'
+            - name: MESSAGE
+              value: 'FinGate | GRC | fraud-svc'
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"

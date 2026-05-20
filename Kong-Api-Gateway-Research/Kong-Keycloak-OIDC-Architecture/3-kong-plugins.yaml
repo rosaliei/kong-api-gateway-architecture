@@ -1,0 +1,41 @@
+---
+# JWT plugin — validates RS256 tokens issued by Keycloak.
+# key_claim_name: azp  — Kong uses the "azp" (authorized party = client_id) claim
+# instead of the default "iss" to look up the matching KongConsumer credential.
+# This works because every Keycloak token for a given client carries azp=<client_id>,
+# and we register each client_id as the "key" on its KongConsumer JWT credential.
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: app-jwt
+  namespace: global-api-gateway-ns
+plugin: jwt
+config:
+  key_claim_name: azp
+  claims_to_verify:
+    - exp
+---
+# ACL plugin — allows ONLY the admin group.
+# Applied to /payments and /grc routes (privileged financial + compliance domains).
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: admin-acl
+  namespace: global-api-gateway-ns
+plugin: acl
+config:
+  allow:
+    - admin
+---
+# ACL plugin — allows admin and user groups.
+# Applied to /retail-banking routes (customer-facing, both roles permitted).
+apiVersion: configuration.konghq.com/v1
+kind: KongPlugin
+metadata:
+  name: anyone-acl
+  namespace: global-api-gateway-ns
+plugin: acl
+config:
+  allow:
+    - admin
+    - user

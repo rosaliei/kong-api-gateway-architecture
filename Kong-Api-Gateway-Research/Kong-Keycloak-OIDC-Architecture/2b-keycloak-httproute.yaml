@@ -1,0 +1,53 @@
+# /auth/* → Keycloak (ClusterIP, keycloak-ns)
+# NO authentication plugin on this route — it is the token acquisition endpoint.
+# Clients POST credentials here to receive a Keycloak JWT before calling any API.
+#
+# Keycloak token endpoint flow through Kong:
+#   POST finance.kst-devops.com/auth/realms/fingate/protocol/openid-connect/token
+#     → Kong strips nothing (PathPrefix /auth → passes full path to Keycloak)
+#     → Keycloak receives full path, issues JWT
+#
+# KC_HTTP_RELATIVE_PATH=/auth is set on Keycloak so its internal links and issuer URL
+# already include /auth — the prefix does NOT need to be stripped here.
+#
+# ReferenceGrant in keycloak-ns is required by Gateway API to allow this HTTPRoute
+# (in global-api-gateway-ns) to reference the keycloak Service (in keycloak-ns).
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-kong-to-keycloak
+  namespace: keycloak-ns
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: global-api-gateway-ns
+  to:
+  - group: ""
+    kind: Service
+    name: keycloak
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: auth-httproute
+  namespace: global-api-gateway-ns
+spec:
+  parentRefs:
+  - name: global-kong-api-gateway
+    namespace: global-kic
+  hostnames:
+    - "auth.kst-devops.com"
+    - "finance.kst-devops.com"
+    - "ae101372d75884ebcb3928c69b7405db-1934850503.ap-southeast-1.elb.amazonaws.com"
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /auth
+    backendRefs:
+    - kind: Service
+      name: keycloak
+      namespace: keycloak-ns
+      port: 8080

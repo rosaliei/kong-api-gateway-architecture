@@ -1,0 +1,49 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: audit-svc
+  namespace: grc-ns
+spec:
+  selector:
+    app: audit-svc
+  ports:
+    - port: 8088
+      targetPort: 9098
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: audit-svc
+  namespace: grc-ns
+  labels:
+    app: audit-svc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: audit-svc
+  template:
+    metadata:
+      labels:
+        app: audit-svc
+    spec:
+      containers:
+        - name: audit-svc
+          image: nicholasjackson/fake-service:v0.26.2
+          ports:
+            - containerPort: 9098
+          env:
+            - name: LISTEN_ADDR
+              value: '0.0.0.0:9098'
+            - name: NAME
+              value: 'audit-svc'
+            - name: MESSAGE
+              value: 'FinGate | GRC | audit-svc'
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "250m"
+              memory: "256Mi"

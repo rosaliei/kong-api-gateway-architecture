@@ -1,0 +1,15 @@
+# # ExternalName service that lets the global-api-gateway-ns HTTPRoute forward
+# # requests to Keycloak in keycloak-ns without leaving the cluster.
+# # DNS resolves to the Keycloak ClusterIP across namespace boundaries.
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: keycloak-proxy
+#   namespace: global-api-gateway-ns
+# spec:
+#   type: ExternalName
+#   externalName: keycloak.keycloak-ns.svc.cluster.local
+#   ports:
+#     - name: http
+#       port: 8080
+#       protocol: TCP
